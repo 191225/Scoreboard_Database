@@ -1,7 +1,7 @@
-import {Database, ExtendedDatabase} from './Database.js';
+import { Database, ExtendedDatabase } from './Database.js';
 import { world, system } from '@minecraft/server';
 
-const db = new ExtendedDatabase('YaMyItsName2');
+const db = new Database('YaMyItsName2');
 world.events.beforeChat.subscribe( async eventData=>{
     if(!eventData.message.startsWith('-')) return;
     eventData.cancel = true;
