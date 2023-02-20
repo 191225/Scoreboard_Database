@@ -41,6 +41,7 @@ set(key: string, value: any): void //Overrided method from (Map) it will alway r
 
 //!Method is only eviable for ExtendedDatabase! 
 setAsync(key: string, value: any): Promise<void> //!Method is only eviable for ExtendedDatabase! same as sync Set but its await null alway per 31000 chars to make work in progress with less lags
+//runCommandAsync has been added to work with Database as well.
 ```
 ### Properties
 ```ts
