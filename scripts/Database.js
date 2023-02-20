@@ -1,4 +1,4 @@
-import { world, Scoreboard, ScoreboardObjective } from "mojang-minecraft"
+import { world, Scoreboard, ScoreboardObjective } from "@minecraft-server"
 
 const scoreSymbol = Symbol('scores'), nameSymbol = Symbol('name'), dbTypeSymbol = Symbol('dbType');
 const overworld = world.getDimension('overworld'), {scoreboard} = world, fakeMaxLength = 32000;
@@ -133,7 +133,7 @@ export class ExtendedDatabase extends DB{
     async setAsync(key,value){
         await null;
         if (typeof(key)!=='string') throw new TypeError('key is not a string.');
-        if(key.match(/(\+\:\_)|["\\\n\r\t\0]/g)?.length>0) throw new Error('invalid key name: ' + key);
+        if (key.match(/(\+\:\_)|["\\\n\r\t\0]/g)?.length>0) throw new Error('invalid key name: ' + key);
         const raw = JSON.stringify(value);
         this.delete(key);
         await null;
@@ -163,9 +163,9 @@ export class ExtendedDatabase extends DB{
 }
 function getObjective(n,d){
     const c = scoreboard.getObjective(n);
-    if(c!==null) return c;
+    if(typeof c === "object") return c;
     try {
-        scoreboard._addObjective(n,d);
+        scoreboard.addObjective(n,d);
         return getObjective(n,d);
     } catch (er) {
         throw er;
@@ -177,10 +177,19 @@ Object.assign(String.prototype,{
     getModify(){return this.replaceAll('\\\\','\\').replaceAll(/\\"/g, '"');}
 });
 Object.assign(Scoreboard.prototype,{
-    _addObjective(id,displayName){overworld.runCommand(`scoreboard objectives add "${id.setModify()}" dummy ${displayName!==undefined?`"${displayName.setModify()}"`:""}`);},
-    _removeObjective(id){overworld.runCommand(`scoreboard objectives remove "${id.setModify()}"`);}
+    _addObjective(id,displayName){overworld.runCommandAsync(`scoreboard objectives add "${id.setModify()}" dummy ${displayName!==undefined?`"${displayName.setModify()}"`:""}`);},
+    _removeObjective(id){overworld.runCommandAsync(`scoreboard objectives remove "${id.setModify()}"`);}
 });
 Object.assign(ScoreboardObjective.prototype,{
-    resetScoreTarget(identity){try {overworld.runCommand(`scoreboard players reset "${identity.displayName}" "${this.id}"`);return true;}catch{return false;}},
-    setScoreTarget(target,score=0){overworld.runCommand(`scoreboard players set "${target.setModify()}" "${this.id.setModify()}" ${score}`);}
+    resetScoreTarget (identity) {
+        try {
+            overworld.runCommandAsync(`scoreboard players reset "${identity.displayName}" "${this.id}"`).then(() => {});
+            return true;
+        } catch {
+            return false;
+        }
+    },
+    setScoreTarget (target, score = 0) {
+        overworld.runCommandAsync(`scoreboard players set "${target.setModify()}" "${this.id.setModify()}" ${score}`);
+    }
 });
