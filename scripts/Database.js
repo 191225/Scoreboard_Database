@@ -1,4 +1,9 @@
-import { world, Scoreboard, ScoreboardObjective } from "@minecraft-server"
+/**
+ * forked from Con-Bedrock-GameTest/Database_Event
+ * https://github.com/Con-Bedrock-GameTest/Database_Event
+ */
+
+import { world, Scoreboard, ScoreboardObjective } from "@minecraft/server";
 
 const scoreSymbol = Symbol('scores'), nameSymbol = Symbol('name'), dbTypeSymbol = Symbol('dbType');
 const overworld = world.getDimension('overworld'), {scoreboard} = world, fakeMaxLength = 32000;
@@ -36,7 +41,6 @@ export class Database extends DB{
         console.warn(defaultType);
         const t = new Date().getTime();
         if(instantLoad) this.loadAll();
-        console.warn('Load: ' + (new Date().getTime() - t) + ' ms');
     }
     delete(key){
         if (typeof(key)!=='string') throw new TypeError('key is not a string.');
@@ -71,6 +75,16 @@ export class Database extends DB{
         if(raw.length>fakeMaxLength) throw new Error(`value large (${raw.length} !< ${fakeMaxLength}), If you need to save more data per property use Extended Database.`);
         this.delete(key);
         this[scoreSymbol].setScoreTarget(key+ "+:_" + raw);
+        return super.set(key,value);
+    }
+    async setAsync(key,value){
+        if (typeof(key)!=='string') throw new TypeError('key is not a string.');
+        if (key.length>150) throw new Error('key is too large max length it 150 characters');
+        if(key.match(/(\+\:\_)|["\\\n\r\t\0]/g)?.length>0) throw new Error('invalid key name: ' + key);
+        const raw = JSON.stringify(value);
+        if(raw.length>fakeMaxLength) throw new Error(`value large (${raw.length} !< ${fakeMaxLength}), If you need to save more data per property use Extended Database.`);
+        this.delete(key);
+        await this[scoreSymbol].setScoreTargetAsync(key+ "+:_" + raw);
         return super.set(key,value);
     }
     *entriesAll(){
@@ -120,7 +134,7 @@ export class ExtendedDatabase extends DB{
     set(key,value){
         if (typeof(key)!=='string') throw new TypeError('key is not a string.');
         if (key.length>150) throw new Error('key is too large max length it 150 characters');
-        if(key.match(/(\+\:\_)|["\\\n\r\t\0]/g)?.length>0) throw new Error('invalid key name: ' + key);
+        if (key.match(/(\+\:\_)|["\\\n\r\t\0]/g)?.length>0) throw new Error('invalid key name: ' + key);
         const raw = JSON.stringify(value);
         this.delete(key);
         for (let i = 1, Min = 0; i<65500; i++, Min+=fakeMaxLength) {
@@ -131,17 +145,15 @@ export class ExtendedDatabase extends DB{
         return super.set(key,value);
     }
     async setAsync(key,value){
-        await null;
         if (typeof(key)!=='string') throw new TypeError('key is not a string.');
+        if (key.length>150) throw new Error('key is too large max length it 150 characters');
         if (key.match(/(\+\:\_)|["\\\n\r\t\0]/g)?.length>0) throw new Error('invalid key name: ' + key);
         const raw = JSON.stringify(value);
         this.delete(key);
-        await null;
         for (let i = 1, Min = 0; i<65500; i++, Min+=fakeMaxLength) {
             const Current = raw.substring(Min,Min + fakeMaxLength);
             if (Current == "") break;
-            this[scoreSymbol].setScoreTarget(key + "+:_" + String.fromCharCode(i) + Current);
-            await null;
+            await this[scoreSymbol].setScoreTargetAsync(key + "+:_" + String.fromCharCode(i) + Current);
         }
         return super.set(key,value);
     }
@@ -163,7 +175,7 @@ export class ExtendedDatabase extends DB{
 }
 function getObjective(n,d){
     const c = scoreboard.getObjective(n);
-    if(typeof c === "object") return c;
+    if (c) return c;
     try {
         scoreboard.addObjective(n,d);
         return getObjective(n,d);
@@ -181,15 +193,18 @@ Object.assign(Scoreboard.prototype,{
     _removeObjective(id){overworld.runCommandAsync(`scoreboard objectives remove "${id.setModify()}"`);}
 });
 Object.assign(ScoreboardObjective.prototype,{
-    resetScoreTarget (identity) {
-        try {
-            overworld.runCommandAsync(`scoreboard players reset "${identity.displayName}" "${this.id}"`).then(() => {});
-            return true;
-        } catch {
-            return false;
-        }
+    resetScoreTarget (identity) {overworld.runCommandAsync(`scoreboard players reset "${identity.displayName}" "${this.id}"`)},
+    setScoreTarget (target, score = 0) {overworld.runCommandAsync(`scoreboard players set "${target.setModify()}" "${this.id.setModify()}" ${score}`)},
+    async resetScoreTargetAsync (identity) {
+        return new Promise(async (resolve, reject) => {
+            await overworld.runCommandAsync(`scoreboard players reset "${identity.displayName}" "${this.id}"`)
+                .then(() => {resolve(true)}).catch((reason) => {return reject(new Error(reason))});
+        })
     },
-    setScoreTarget (target, score = 0) {
-        overworld.runCommandAsync(`scoreboard players set "${target.setModify()}" "${this.id.setModify()}" ${score}`);
+    async setScoreTargetAsync (target, score = 0) {
+        return new Promise(async (resolve, reject) => {
+            await overworld.runCommandAsync(`scoreboard players set "${target.setModify()}" "${this.id.setModify()}" ${score}`)
+                .then(() => {resolve(true)}).catch((reason) => {return reject(new Error(reason))});
+        })
     }
 });
